@@ -1,16 +1,20 @@
 pipeline {
-    agent any
+    agent {
+        docker {
+            image 'node:18'
+            args '-u root' // to avoid permission issues with npm
+        }
+    }
 
     environment {
-        DOCKER_IMAGE = 'suman/ultimate-cicd-app'
-        DOCKER_TAG = 'latest'
-        DOCKER_HUB_CREDENTIALS = 'dockerhub-credentials'
+        DOCKERHUB_CREDENTIALS = credentials('dockerhub-creds')
+        GITHUB_TOKEN = credentials('github-token')
     }
 
     stages {
         stage('Checkout') {
             steps {
-                git branch: 'main', url: 'https://github.com/centroxy-suman/CICD-Test.git', credentialsId: 'github-token'
+                git credentialsId: 'github-token', url: 'https://github.com/centroxy-suman/CICD-Test.git', branch: 'main'
             }
         }
 
@@ -23,23 +27,40 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                sh "docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} ."
+                script {
+                    dockerImage = docker.build("centroxy-suman/cicd-test")
+                }
             }
         }
 
         stage('Scan with Trivy') {
             steps {
-                sh "trivy image ${DOCKER_IMAGE}:${DOCKER_TAG} || true"
+                sh '''
+                    apk add --no-cache curl
+                    curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+                    trivy image centroxy-suman/cicd-test
+                '''
             }
         }
 
         stage('Push to DockerHub') {
             steps {
-                withCredentials([usernamePassword(credentialsId: "${DOCKER_HUB_CREDENTIALS}", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                    sh 'echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin'
-                    sh "docker push ${DOCKER_IMAGE}:${DOCKER_TAG}"
+                script {
+                    docker.withRegistry('https://index.docker.io/v1/', 'dockerhub-creds') {
+                        dockerImage.push("${env.BUILD_NUMBER}")
+                        dockerImage.push("latest")
+                    }
                 }
             }
+        }
+    }
+
+    post {
+        failure {
+            echo "Build failed! Check the logs."
+        }
+        success {
+            echo "Pipeline executed successfully!"
         }
     }
 }
