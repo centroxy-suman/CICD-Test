@@ -1,11 +1,10 @@
 pipeline {
-//    agent {
-//        docker {
-//            image 'node:18'
-//            args '-u root' // to avoid permission issues with npm
-//        }
-//    }
-    agent any
+    agent {
+        docker {
+            image 'node:18'
+            args '-u root' // to avoid permission issues with npm
+        }
+    }
 
     environment {
         DOCKERHUB_CREDENTIALS = credentials('dockerhub-creds')
