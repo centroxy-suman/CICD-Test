@@ -9,7 +9,7 @@ pipeline {
     environment {
         DOCKERHUB_CREDENTIALS = credentials('dockerhub-creds')
         GITHUB_TOKEN = credentials('github-token')
-        SONARQUBE_URL = 'http://sonarqube:9000' // Set your SonarQube server URL
+        SONARQUBE_URL = 'http://172.25.183.103:9000'
         SONAR_TOKEN = credentials('sonar-token')
         TRIVY_IMAGE = 'aquasec/trivy'
     }
@@ -30,15 +30,20 @@ pipeline {
 
         stage('SonarQube Analysis') {
             steps {
-                script {
-                    sh """
-                        docker run --rm \
-                            -e SONAR_HOST_URL=${SONARQUBE_URL} \
-                            -e SONAR_LOGIN=${SONAR_TOKEN} \
-                            -v ${env.WORKSPACE}:/usr/src \
-                            -w /usr/src \
-                            sonarsource/sonar-scanner-cli
-                    """
+                withEnv(["SONAR_TOKEN=${SONAR_TOKEN}"]) {
+                    sh '''
+                        apt-get update && apt-get install -y unzip curl openjdk-17-jre
+                        curl -sSLo sonar-scanner.zip https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006-linux.zip
+                        unzip -q sonar-scanner.zip
+                        mv sonar-scanner-*/ sonar-scanner
+                        chmod +x sonar-scanner/bin/sonar-scanner
+
+                        sonar-scanner/bin/sonar-scanner \
+                          -Dsonar.projectKey=cicd-test \
+                          -Dsonar.sources=. \
+                          -Dsonar.host.url=${SONARQUBE_URL} \
+                          -Dsonar.login=$SONAR_TOKEN
+                    '''
                 }
             }
         }
@@ -54,7 +59,7 @@ pipeline {
         stage('Scan with Trivy') {
             steps {
                 sh '''
-                    apk add --no-cache curl
+                    apt-get update && apt-get install -y curl
                     curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
                     trivy image --exit-code 1 --severity HIGH,CRITICAL centroxy-suman/cicd-test
                 '''
@@ -75,7 +80,6 @@ pipeline {
         stage('Deploy Application') {
             steps {
                 script {
-                    // Assuming you have a docker-compose.yml that will handle the deployment of your app
                     sh "docker-compose -f docker-compose.yml up -d"
                 }
             }
@@ -85,7 +89,6 @@ pipeline {
             steps {
                 script {
                     sleep(time: 30, unit: 'SECONDS')
-
                     def result = sh(script: "curl -s -o /dev/null -w '%{http_code}' http://localhost:3000", returnStdout: true).trim()
 
                     if (result == "200") {
