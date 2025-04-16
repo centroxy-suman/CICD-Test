@@ -21,7 +21,7 @@ pipeline {
         stage('Install & Test') {
             steps {
                 sh 'npm install'
-                sh 'npm test'
+                sh 'npm test -- --detectOpenHandles'
             }
         }
 
