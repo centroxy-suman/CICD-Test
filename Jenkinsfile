@@ -2,7 +2,7 @@ pipeline {
     agent {
         docker {
             image 'node:18'
-            args '-u root' // to avoid permission issues with npm
+            args '-u root'
         }
     }
 
@@ -49,6 +49,12 @@ pipeline {
         }
 
         stage('Build Docker Image') {
+            agent {
+                docker {
+                    image 'docker:24.0.7'
+                    args '-u root -v /var/run/docker.sock:/var/run/docker.sock'
+                }
+            }
             steps {
                 script {
                     dockerImage = docker.build("centroxy-suman/cicd-test")
@@ -57,9 +63,15 @@ pipeline {
         }
 
         stage('Scan with Trivy') {
+            agent {
+                docker {
+                    image 'docker:24.0.7'
+                    args '-u root -v /var/run/docker.sock:/var/run/docker.sock'
+                }
+            }
             steps {
                 sh '''
-                    apt-get update && apt-get install -y curl
+                    apk add --no-cache curl
                     curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
                     trivy image --exit-code 1 --severity HIGH,CRITICAL centroxy-suman/cicd-test
                 '''
@@ -67,6 +79,12 @@ pipeline {
         }
 
         stage('Push to DockerHub') {
+            agent {
+                docker {
+                    image 'docker:24.0.7'
+                    args '-u root -v /var/run/docker.sock:/var/run/docker.sock'
+                }
+            }
             steps {
                 script {
                     docker.withRegistry('https://index.docker.io/v1/', 'dockerhub-creds') {
@@ -78,6 +96,12 @@ pipeline {
         }
 
         stage('Deploy Application') {
+            agent {
+                docker {
+                    image 'docker/compose:1.29.2'
+                    args '-u root -v /var/run/docker.sock:/var/run/docker.sock'
+                }
+            }
             steps {
                 script {
                     sh "docker-compose -f docker-compose.yml up -d"
