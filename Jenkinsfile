@@ -1,4 +1,10 @@
 pipeline {
+//    agent {
+//        docker {
+//            image 'node:18'
+//            args '-u root' // to avoid permission issues with npm
+//        }
+//    }
     agent any
 
     environment {
@@ -7,8 +13,6 @@ pipeline {
         SONARQUBE_URL = 'http://172.25.183.103:9000'
         SONAR_TOKEN = credentials('sonar-token')
         TRIVY_IMAGE = 'aquasec/trivy'
-        NODE_VERSION = '18.20.0'
-        NVM_DIR = "${HOME}/.nvm"
     }
 
     stages {
@@ -18,22 +22,10 @@ pipeline {
             }
         }
 
-        stage('Install Node.js and Test') {
+        stage('Install & Test') {
             steps {
-                sh '''
-                    # Install NVM
-                    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
-                    export NVM_DIR="$HOME/.nvm"
-                    [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
-
-                    # Install and use Node.js
-                    nvm install $NODE_VERSION
-                    nvm use $NODE_VERSION
-
-                    # Install project dependencies & run tests
-                    npm install
-                    npm test -- --detectOpenHandles
-                '''
+                sh 'npm install'
+                sh 'npm test -- --detectOpenHandles'
             }
         }
 
