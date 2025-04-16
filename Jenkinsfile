@@ -33,6 +33,7 @@ pipeline {
                 withEnv(["SONAR_TOKEN=${SONAR_TOKEN}"]) {
                     sh '''
                         apt-get update && apt-get install -y unzip curl openjdk-17-jre
+                        rm -rf sonar-scanner sonar-scanner.zip sonar-scanner-5.0.1.3006-linux*
                         curl -sSLo sonar-scanner.zip https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006-linux.zip
                         unzip -q sonar-scanner.zip
                         mv sonar-scanner-*/ sonar-scanner
