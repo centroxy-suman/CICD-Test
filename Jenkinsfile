@@ -10,7 +10,7 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                git branch: 'main', git url: 'https://github.com/centroxy-suman/CICD-Test.git', credentialsId: 'github-token'
+                git branch: 'main', url: 'https://github.com/centroxy-suman/CICD-Test.git', credentialsId: 'github-token'
             }
         }
 
